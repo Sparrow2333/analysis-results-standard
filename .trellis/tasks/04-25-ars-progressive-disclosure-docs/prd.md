@@ -38,6 +38,7 @@ Create a progressive-disclosure documentation set that helps future AI conversat
 * Optimize the first MVP for an AI loading/retrieval protocol: future AI sessions should know which compact notes to read first, and which original source files to inspect only when necessary.
 * Explain the key TFL-related ARS concepts through the logical model, especially `ReportingEvent`, `ListOfContents`, `Output`, `OutputDisplay`, `DisplaySection`, `Analysis`, `AnalysisSet`, `DataSubset`, `GroupingFactor`, `Group`, `AnalysisMethod`, `Operation`, `OperationResult`, `ResultGroup`, `WhereClause`, and `DocumentReference`.
 * Keep the task focused on documentation and knowledge packaging, not programming.
+* Expand the capability checklist with realistic TFL boundary scenarios such as transposed displays, multiple denominators, shift tables, baseline-change tables, SOC/PT tables, PK mixed detail/summary displays, and multi-result cells.
 
 ## Acceptance Criteria (Evolving)
 
@@ -97,3 +98,9 @@ Create a progressive-disclosure documentation set that helps future AI conversat
 **Decision**: First create a compact documentation set under `notes/ars-ai-guide/` centered on load order, context budgets, task routing, and source-map references. Keep object-level explanation shallow in this iteration and link to generated ARS docs for detail.
 
 **Consequences**: Future conversations can begin by reading a small number of notes and only expand into generated model docs when the task needs object details. Some class-level explanations will remain deliberately brief until a later deep-dive task.
+
+### 2026-04-25 Checklist Expansion Notes
+
+* The user identified 13 must-test ARS boundary questions around table transposition, multiple N, multi-level headers, row/column method ownership, shift tables, baseline-change tables, SOC/PT tables, PK mixed structures, data-driven groupings, method conflicts, total/missing groups, top-left stub text, and multi-result cells.
+* `notes/ars-capability-checklist.md` now includes a dedicated "专项能力边界问题" section with executable checks for those points, plus two additional cross-cutting checks for display block/panel structure and sorting/derived ordering.
+* The same file now includes additional typical cases: Laboratory Shift Table, Change from Baseline Summary, Adverse Events by SOC and PT, and PK Individual and Summary Table.

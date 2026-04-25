@@ -697,7 +697,342 @@ Sex
 - ARS schema 不一定覆盖全部业务连通性。
 - 需要额外 conformance rules 或应用层校验，能力倾向 B 或 C。
 
-## 十五、典型表格测试用例
+## 十五、专项能力边界问题
+
+本节用于承接真实 TFL shell 中最容易误判的能力点。建议每个专项都构造一个最小 `ReportingEvent`，并明确区分：
+
+- ARS 是否能表达统计语义。
+- ARS 是否能表达 display 与 analysis/result 的绑定。
+- ARS 是否能表达物理 row/column/cell layout。
+- 是否必须引入项目约定、`DisplayLayout`、`CellBinding` 或渲染模板。
+
+### SPC-01 能否区分同一分析语义下的表格转置
+
+目标语义：
+
+在 analysis、analysis set、data subset、grouping、method 和 result 不变的情况下，只改变表格视觉方向，例如 treatment 作为列 vs treatment 作为行，或 statistic 作为行 vs statistic 作为列。
+
+检查：
+
+- [ ] 能否用同一组 `Analysis` / `GroupingFactor` / `OperationResult` 表达两张语义等价但转置的 display。
+- [ ] ARS 是否有原生字段标识某个 grouping 应落在 row axis。
+- [ ] ARS 是否有原生字段标识某个 grouping 应落在 column axis。
+- [ ] ARS 是否有原生字段标识某个 operation/statistic 应落在 row axis 或 column axis。
+- [ ] 两张转置表能否在不依赖外部 layout 的情况下被渲染器稳定区分。
+
+手工测试建议：
+
+构造一张 treatment by statistic 表，再构造它的转置版本。两者共享同一批 `Analysis.results`，只改变 display 期望。
+
+判定重点：
+
+- ARS 能表达分组和结果语义，但通常不能原生表达视觉轴向。
+- 如果转置只存在于渲染规则中，能力等级倾向 C。
+- 这是判断是否需要 `DisplayLayout.axis` 或类似外部结构的关键用例。
+
+### SPC-02 能否支持同一列下多个 denominator / N
+
+目标语义：
+
+同一 treatment 列中，不同行或不同分析使用不同总人数，例如 safety population N、某访视有观测值的 N、某检查项非缺失 N、AE subject denominator。
+
+检查：
+
+- [ ] 能否为不同 `Analysis` 指定不同 `AnalysisSet`。
+- [ ] 能否为不同 row 指定不同 `DataSubset`。
+- [ ] 能否把 denominator 建模为独立 `Operation`。
+- [ ] percentage operation 是否能通过 `referencedOperationRelationships` 或 `referencedAnalysisOperations` 指向对应 denominator。
+- [ ] display 是否能标明列头中的 N 与单元格百分比分母不是同一个 N。
+- [ ] 同一列多个 N 是否能被结果级别追踪，而不是只作为列头文本。
+
+手工测试建议：
+
+构造一张 AE summary：列头显示 Safety N；某些行的百分比分母使用 TEAE evaluable N；另一些行使用 exposed subjects N。
+
+判定重点：
+
+- ARS 可表达多个 analysis set、subset、operation 和 operation result，语义能力倾向 B。
+- denominator 的角色标准化、列头 N 与行内 N 的显示规则通常需要项目约定。
+- 如果要求渲染器自动判断每个百分比使用哪个 N，需额外 conformance rule。
+
+### SPC-03 能否表达多层表头
+
+目标语义：
+
+表头包含多个层级，例如 treatment 下分 visit，visit 下分 statistic，或 dose group 下分 parameter / unit。
+
+检查：
+
+- [ ] 能否用多个 `GroupingFactor` 表达表头对应的语义层级。
+- [ ] 能否通过 `OrderedGroupingFactor.order` 表达分组顺序。
+- [ ] 能否表达 header span。
+- [ ] 能否表达 header repeat。
+- [ ] 能否表达空表头单元格、跨列标题和单位行。
+- [ ] 能否区分“语义层级”与“物理表头层级”。
+
+判定重点：
+
+- 分组语义通常可由 `GroupingFactor` / `Group` 表达。
+- 物理多层表头、span、repeat 通常不是 ARS 原生能力，能力等级倾向 C 或 D。
+
+### SPC-04 分析方法应落在 row、column 还是 analysis 本身
+
+目标语义：
+
+某些表中 row 和 column 都是临床分类值，例如 post-baseline worst result by baseline result，单元格中显示 count/percentage。需要判断 count/percentage 这种统计方法属于 row、column、cell，还是属于支撑该 display 的 `AnalysisMethod`。
+
+检查：
+
+- [ ] 能否把 clinical categories 建模为 row/column grouping。
+- [ ] 能否把 count/percentage 建模为 `AnalysisMethod.operations`。
+- [ ] 能否表达 operation 与 row grouping、column grouping 的关系。
+- [ ] 当 row 和 column 都是 normal/abnormal 这类分类值时，是否仍能无歧义定位统计方法。
+- [ ] 是否存在把 statistic 当 row label 或 column label 的外部约定。
+
+手工测试建议：
+
+构造 baseline status x worst post-baseline status 的二维频数表，统计量为 n 和 percentage。
+
+判定重点：
+
+- ARS 中统计方法更自然地落在 `AnalysisMethod` / `Operation` 上，而不是物理 row 或 column 上。
+- 统计方法是否显示为行、列或 cell 内组合，通常属于 layout / rendering 决策。
+
+### SPC-05 能否支持 shift table
+
+目标语义：
+
+表达从 baseline category 到 post-baseline category 的转移矩阵，例如 normal / abnormal / missing 的基线状态与治疗后最差状态交叉。
+
+检查：
+
+- [ ] 能否表达 baseline category grouping。
+- [ ] 能否表达 post-baseline 或 worst post-baseline category grouping。
+- [ ] 能否表达两个分类维度组合下的结果。
+- [ ] 能否表达 row total 和 column total。
+- [ ] 能否表达 missing / not done / no post-baseline assessment。
+- [ ] 能否表达百分比的 denominator 是 row total、column total 还是 overall N。
+- [ ] 能否表达 shift table 的二维矩阵 layout。
+
+手工测试建议：
+
+构造 lab shift table：Baseline Normal/Abnormal/Missing by Worst Post-baseline Normal/Abnormal/Missing，单元格为 n (%)。
+
+判定重点：
+
+- 二维分类结果语义可以通过多个 grouping 和 `ResultGroup` 表达，能力倾向 B。
+- 矩阵轴向、total 边栏、百分比分母规则、missing 展示通常需要外部约定。
+
+### SPC-06 能否支持基于基线变化的 table
+
+目标语义：
+
+同一参数/访视下同时展示 observed value、baseline、change from baseline、percent change from baseline，或基于 baseline change 的分类频数。
+
+检查：
+
+- [ ] 能否用不同 `Analysis.variable` 表达 `AVAL`、`BASE`、`CHG`、`PCHG`。
+- [ ] 能否用 `DataSubset` 表达 baseline、post-baseline、on-treatment 等记录范围。
+- [ ] 能否表达 change from baseline 的派生定义或程序引用。
+- [ ] 能否表达 observed value 与 change from baseline 共用同一 parameter / visit / treatment 分组。
+- [ ] 能否表达基于 change 阈值的分类行。
+- [ ] 能否表达 baseline 与 post-baseline 的配对关系。
+
+判定重点：
+
+- `Analysis` 可表达不同分析变量和方法，能力倾向 A/B。
+- change 的派生算法、配对规则和 shell 中 observed/change 的相邻布局通常需要程序引用或 layout 约定。
+
+### SPC-07 能否支持 SOC / PT 统计类 table
+
+目标语义：
+
+AE 表按 SOC、PT 层级展开，常见单元格为 subjects n (%)、events E，可能包含总体行、SOC 行、PT 行、严重程度或相关性子层级。
+
+检查：
+
+- [ ] 能否表达 SOC grouping。
+- [ ] 能否表达 PT grouping。
+- [ ] 能否表达 SOC > PT 的层级顺序。
+- [ ] 能否表达 subject count 与 event count 两类结果。
+- [ ] 能否表达同一 PT 下按 severity / relatedness 分层。
+- [ ] 能否表达排序规则，例如按 SOC 字母序、PT 频数降序。
+- [ ] 能否表达 MedDRA 版本或外部术语引用。
+
+手工测试建议：
+
+构造 TEAE by SOC and PT 表，列为 treatment，单元格为 `subjects n (%)` 和 `events E`。
+
+判定重点：
+
+- SOC/PT 可作为 grouping 或 data-driven group 语义表达，能力倾向 B。
+- 层级 row stub、排序规则、术语版本和 n/E 组合展示通常需要项目约定。
+
+### SPC-08 能否支持 PK 参数混合结构 table
+
+目标语义：
+
+同一 display 上半部分展示每个参与者在每个时间点或参数下的结果，下半部分展示每个时间点或参数的描述性统计。
+
+检查：
+
+- [ ] 能否在同一 `OutputDisplay` 下表达 individual listing-like rows 与 summary rows。
+- [ ] 能否区分 participant-level results 与 aggregate results。
+- [ ] 能否表达 subject、time point、parameter、treatment 的多重分组。
+- [ ] 能否表达上下两个 panel 或 block。
+- [ ] 能否表达上半部分和下半部分使用不同 `AnalysisMethod`。
+- [ ] 能否表达 summary block 的 n、mean、SD、CV%、median、min/max。
+
+手工测试建议：
+
+构造 PK concentration by time 表：上半部分每个 subject 一行；下半部分按 time point 汇总 descriptive statistics。
+
+判定重点：
+
+- ARS 可表达多个 analysis 和多个 method，但“同一 display 内两个不同 row block”的 layout 需要外部规则。
+- listing-like 明细值与 aggregate summary 的混合边界需要重点验证。
+
+### SPC-09 能否支持数据驱动的多个分组
+
+目标语义：
+
+分组水平来自数据本身，例如不同 visit、不同 parameter、不同 category 下重复生成相同分析结构，而不是预先列死所有 group。
+
+检查：
+
+- [ ] `GroupingFactor.dataDriven = true` 是否足以表达数据驱动分组。
+- [ ] `ResultGroup.groupValue` 是否能承载数据驱动分组值。
+- [ ] 能否同时使用多个 data-driven grouping。
+- [ ] 能否表达 data-driven group 的排序规则。
+- [ ] 能否表达 data-driven group 的显示 label 与原始值不同。
+- [ ] 能否表达某些数据值应被排除、合并或重命名。
+
+判定重点：
+
+- 数据驱动分组是 ARS 明确支持的语义，但排序、label 标准化和展示规则通常需要项目约定。
+- 多个 data-driven grouping 映射为 row/column/block 时仍需要 layout。
+
+### SPC-10 行/列统计分析方法冲突时如何处理
+
+目标语义：
+
+某个 display 的 row 期望一种统计方法，column 期望另一种统计方法，或同一 cell 被多个不同 analysis/method 声称生成。
+
+检查：
+
+- [ ] ARS 是否允许同一 display 中多个 `Analysis` 使用不同 `methodId`。
+- [ ] 能否表达某个 result 来自哪个 `Analysis` 和哪个 `Operation`。
+- [ ] 能否检测同一 cell 绑定多个不兼容 result。
+- [ ] 能否检测 row-level method 与 column-level method 的冲突。
+- [ ] 能否表达冲突优先级或覆盖规则。
+
+判定重点：
+
+- ARS 可以容纳多个 method，但不一定定义 display/cell 层面的冲突检测。
+- 冲突处理更像应用层 conformance rule 和 `CellBinding` 职责，能力等级倾向 C。
+
+### SPC-11 能否支持汇总、缺失、未分类等特殊分组
+
+目标语义：
+
+表格中存在 Total、Overall、Missing、Unknown、Not applicable、Not done、Unclassified 等特殊行/列/分组。
+
+检查：
+
+- [ ] 能否把 Total / Overall 表达为预定义 `Group`。
+- [ ] 能否把 Missing / Unknown 表达为预定义 `Group` 或 `DataSubset`。
+- [ ] 能否表达特殊分组与普通数据值分组的排序关系。
+- [ ] 能否表达 Total 是跨哪些 group 汇总得到的。
+- [ ] 能否表达 Missing 是否纳入 denominator。
+- [ ] 能否表达缺失分组显示在 row、column 还是 footnote 中。
+
+判定重点：
+
+- 特殊分组的条件语义可表达，能力倾向 B。
+- total 的计算范围、缺失纳入规则和展示位置需要项目约定。
+
+### SPC-12 表格左上角文本是否有语法意义
+
+目标语义：
+
+表格左上角常出现 row stub header，例如 `Parameter`、`Visit`、`System Organ Class Preferred Term`，也可能为空。需要判断它只是视觉文本，还是承载 row axis / stub / hierarchy 的语法意义。
+
+检查：
+
+- [ ] 能否用 `GroupingFactor.label` 表达 row stub header。
+- [ ] 能否用 `Analysis.label` 或 `Operation.label` 表达 row stub header。
+- [ ] 能否用 `DisplaySection` 表达左上角文本。
+- [ ] ARS 是否能标明该文本位于左上角 stub header cell。
+- [ ] 左上角文本是否影响 row grouping 的解释。
+
+判定重点：
+
+- 文本本身可用 label 或 display text 表达。
+- “左上角”位置和 stub header 语法通常不是 ARS 原生能力，能力等级倾向 C。
+
+### SPC-13 能否支持同一结果单元格多个分析结果
+
+目标语义：
+
+一个 cell 中展示多个 operation result 或多个 analysis result，例如 AE 表常见 `subjects n (%) events E`，或 `mean (SD)`、`median [Q1, Q3]`。
+
+检查：
+
+- [ ] 能否为同一 group 组合保存多个 `OperationResult`。
+- [ ] 能否区分 subject count、percentage、event count。
+- [ ] 能否用 `Operation.resultPattern` 或 `OperationResult.formattedValue` 表达组合展示。
+- [ ] 能否表达多个 result 在同一 cell 中的顺序。
+- [ ] 能否表达多个 result 之间的分隔符、括号和换行规则。
+- [ ] 能否区分“多个 result 组合成一个 cell”与“多个 statistic column”。
+
+手工测试建议：
+
+构造 AE SOC/PT 表，单元格同时展示 `n (%)` 和 `E`；再构造 descriptive statistics 表，比较 `Mean (SD)` 作为一个 cell 和 Mean、SD 作为两列的差异。
+
+判定重点：
+
+- 多个 `OperationResult` 可表达，但 cell 组合规则通常不是 ARS 原生能力。
+- 如果只把组合后的字符串放入 `formattedValue`，可渲染但会损失结构化结果的可复用性。
+
+### SPC-14 能否表达 display block / panel 结构
+
+目标语义：
+
+一个 display 内存在多个逻辑区块，例如 overall summary block、by-visit block、individual rows block、descriptive statistics block。
+
+检查：
+
+- [ ] 能否表达多个 analysis block 属于同一个 display。
+- [ ] 能否表达 block 顺序。
+- [ ] 能否表达 block header。
+- [ ] 能否表达不同 block 使用不同 row/column 规则。
+- [ ] 能否表达 block 间共享或不共享 column header。
+
+判定重点：
+
+- ARS 可容纳多个 analysis 和 display section 文本。
+- display 内部 block layout 通常需要外部 `DisplayLayout`。
+
+### SPC-15 能否表达排序规则与派生排序
+
+目标语义：
+
+行或列不只是按原始值排序，而是按频数、临床顺序、字典顺序、访视计划顺序、SOC/PT 层级或 sponsor-defined order 排序。
+
+检查：
+
+- [ ] 预定义 `Group.order` 是否能表达固定顺序。
+- [ ] data-driven group 是否能表达排序依据。
+- [ ] 能否表达按某列结果值降序排序。
+- [ ] 能否表达 tie-breaker。
+- [ ] 能否表达排序规则来自外部术语、SAP 或程序。
+
+判定重点：
+
+- 固定分组顺序可表达，能力倾向 A/B。
+- 基于结果值或外部术语的派生排序通常需要项目约定或程序引用。
+
+## 十六、典型表格测试用例
 
 以下测试用例只使用手工赋值，不依赖建库文件。
 
@@ -833,6 +1168,173 @@ Methods:
 - 多层表头通常是否必须由 `DisplayLayout` 表达。
 - observed 与 change 是否建模为两个 `Analysis` 更自然。
 
+### CASE-04 Laboratory Shift Table
+
+目标：
+
+评估 ARS 是否能表达 baseline 到 post-baseline / worst post-baseline 的二维转移矩阵。
+
+手工输入：
+
+```text
+AnalysisSet:
+  SAF = ADSL.SAFFL EQ Y
+
+Dataset:
+  ADLB
+
+GroupingFactors:
+  TRT = ADSL.TRT01A
+  BASECAT = ADLB.BNRIND
+  WORSTCAT = derived worst post-baseline ANRIND
+
+Methods:
+  count subjects
+  calculate percentage
+```
+
+检查：
+
+- [ ] 能否表达 baseline category。
+- [ ] 能否表达 worst post-baseline category。
+- [ ] 能否表达 baseline category x worst category 的结果组合。
+- [ ] 能否表达 treatment 分组。
+- [ ] 能否表达 row total / column total / overall total。
+- [ ] 能否表达 missing baseline 或 missing post-baseline。
+- [ ] 能否表达百分比分母规则。
+- [ ] 能否渲染二维 shift matrix。
+
+重点边界：
+
+- 两个分类 grouping 的语义可表达，但哪个放 row、哪个放 column 需要 layout。
+- total 和 missing 的统计口径需要明确约定。
+
+### CASE-05 Change from Baseline Summary
+
+目标：
+
+评估 ARS 是否能表达 observed value、baseline、change from baseline 和 percent change from baseline 的组合展示。
+
+手工输入：
+
+```text
+AnalysisSet:
+  SAF = ADSL.SAFFL EQ Y
+
+Dataset:
+  ADVS
+
+Variables:
+  AVAL
+  BASE
+  CHG
+  PCHG
+
+GroupingFactors:
+  TRT = ADSL.TRT01A
+  PARAM = ADVS.PARAM
+  VISIT = ADVS.AVISIT
+
+Methods:
+  descriptive statistics
+```
+
+检查：
+
+- [ ] 能否表达 baseline value。
+- [ ] 能否表达 observed value。
+- [ ] 能否表达 change from baseline。
+- [ ] 能否表达 percent change from baseline。
+- [ ] 能否表达同一 parameter / visit 下多个分析变量。
+- [ ] 能否表达变量派生规则或程序引用。
+- [ ] 能否表达 observed/change 的相邻 row 或 column layout。
+
+重点边界：
+
+- 多个分析变量可用多个 `Analysis` 表达。
+- 变量之间的配对关系和展示相邻性需要额外规则。
+
+### CASE-06 Adverse Events by SOC and PT
+
+目标：
+
+评估 ARS 是否能表达 SOC/PT 层级、安全性计数、事件计数和组合单元格。
+
+手工输入：
+
+```text
+AnalysisSet:
+  SAF = ADSL.SAFFL EQ Y
+
+DataSubset:
+  TEAE = ADAE.TRTEMFL EQ Y
+
+GroupingFactors:
+  TRT = ADSL.TRT01A
+  SOC = ADAE.AEBODSYS
+  PT = ADAE.AEDECOD
+
+Methods:
+  count subjects
+  calculate percentage
+  count events
+```
+
+检查：
+
+- [ ] 能否表达 SOC 层级。
+- [ ] 能否表达 PT 层级。
+- [ ] 能否表达 treatment 分列。
+- [ ] 能否表达 subjects n (%)。
+- [ ] 能否表达 events E。
+- [ ] 能否表达 `n (%) E` 或分行展示。
+- [ ] 能否表达 SOC/PT 排序规则。
+- [ ] 能否表达 MedDRA version。
+
+重点边界：
+
+- SOC/PT 的 row stub 层级和排序通常需要外部约定。
+- subject count、percentage、event count 的组合 cell 需要 `CellBinding` 或 result pattern 约定。
+
+### CASE-07 PK Individual and Summary Table
+
+目标：
+
+评估 ARS 是否能表达同一 display 内 participant-level 数据和 aggregate descriptive statistics 的混合结构。
+
+手工输入：
+
+```text
+AnalysisSet:
+  PK = ADSL.PKFL EQ Y
+
+Dataset:
+  ADPC or ADPP
+
+GroupingFactors:
+  TRT = ADSL.TRT01A
+  SUBJECT = ADPC.USUBJID
+  TIME = ADPC.ATPT
+  PARAM = ADPC.PARAM
+
+Methods:
+  individual value
+  descriptive statistics
+```
+
+检查：
+
+- [ ] 能否表达每个 subject / time / parameter 的 individual value。
+- [ ] 能否表达每个 time / parameter 的 descriptive statistics。
+- [ ] 能否表达同一 display 的上、下两个 block。
+- [ ] 能否表达两个 block 使用不同 method。
+- [ ] 能否表达 subject rows 与 summary rows 的排序关系。
+- [ ] 能否表达不同 block 是否共享 column header。
+
+重点边界：
+
+- ARS 可表达多组 analyses，但混合 listing-summary layout 需要外部 display block 规则。
+
 ## 最终判定表
 
 完成上述检查后，建议汇总为下表：
@@ -852,6 +1354,18 @@ Methods:
 | Row 结构 |  |  |  |
 | Column 结构 |  |  |  |
 | Cell binding |  |  |  |
+| 表格转置识别 |  |  |  |
+| 多 denominator / N |  |  |  |
+| 多层表头 |  |  |  |
+| Shift table |  |  |  |
+| Baseline / change from baseline |  |  |  |
+| SOC / PT 层级统计 |  |  |  |
+| PK 明细与汇总混合结构 |  |  |  |
+| 数据驱动多重分组 |  |  |  |
+| Total / Missing / Unknown 分组 |  |  |  |
+| 多 result 组合 cell |  |  |  |
+| Display block / panel |  |  |  |
+| 排序规则与派生排序 |  |  |  |
 | 精确 shell layout |  |  |  |
 | 模板槽位 |  |  |  |
 | 最终实例校验 |  |  |  |
