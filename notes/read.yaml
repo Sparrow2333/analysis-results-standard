@@ -1,0 +1,364 @@
+id: RE_QS_01
+name: Questionnaire Summary Reporting Event
+
+mainListOfContents:
+  name: Main LOC
+  contentsList:
+    listItems:
+      - name: Questionnaire Table
+        level: 1
+        order: 1
+        outputId: Out_QS_By_Trt
+
+analysisSets:
+  - id: AS_SAF
+    name: Safety Population
+
+  - id: AS_Female_SAF
+    name: Female Safety Population
+    condition:
+      dataset: ADSL
+      variable: SEX
+      comparator: EQ
+      value: ["F"]
+
+dataSubsets:
+  - id: DS_Q1
+    name: Question 1 records
+    condition:
+      dataset: ADQS
+      variable: QNAM
+      comparator: EQ
+      value: ["Q1_A"]
+
+  - id: DS_Q2
+    name: Question 2 records
+    condition:
+      dataset: ADQS
+      variable: QNAM
+      comparator: EQ
+      value: ["Q2_STOP_MENSES"]
+
+analysisGroupings:
+  - id: Grp_TRT
+    name: Treatment
+    groupingDataset: ADQS
+    groupingVariable: TRT01A
+    dataDriven: true
+
+  - id: Grp_RESP
+    name: Response
+    groupingDataset: ADQS
+    groupingVariable: AVALC
+    dataDriven: true
+
+methods:
+  - id: Mth_Count
+    name: Count
+    operations:
+      - id: Op_Count
+        name: Count of subjects
+        order: 1
+        resultPattern: "999"
+
+  - id: Mth_Percent
+    name: Percent
+    operations:
+      - id: Op_Percent
+        name: Percent of subjects
+        order: 1
+        referencedOperationRelationships:
+          - id: Rel_Pct_NUM
+            referencedOperationRole:
+              controlledTerm: NUMERATOR
+            operationId: Op_Count
+          - id: Rel_Pct_DEN
+            referencedOperationRole:
+              controlledTerm: DENOMINATOR
+            operationId: Op_Count
+        resultPattern: "(99.9)"
+
+analyses:
+  - id: An_N_All_ByTrt
+    name: Total N by Treatment
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADSL
+    variable: USUBJID
+    analysisSetId: AS_SAF
+    methodId: Mth_Count
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+    results:
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+        rawValue: "86"
+        formattedValue: "86"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+        rawValue: "84"
+        formattedValue: "84"
+
+  - id: An_Q1_Count_ByTrtResp
+    name: Q1 Count by Treatment and Response
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADQS
+    variable: USUBJID
+    analysisSetId: AS_SAF
+    dataSubsetId: DS_Q1
+    methodId: Mth_Count
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+      - order: 2
+        groupingId: Grp_RESP
+        resultsByGroup: true
+    results:
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "30"
+        formattedValue: "30"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "56"
+        formattedValue: "56"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "28"
+        formattedValue: "28"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "56"
+        formattedValue: "56"
+
+  - id: An_Q1_Pct_ByTrtResp
+    name: Q1 Percent by Treatment and Response
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADQS
+    variable: USUBJID
+    analysisSetId: AS_SAF
+    dataSubsetId: DS_Q1
+    methodId: Mth_Percent
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+      - order: 2
+        groupingId: Grp_RESP
+        resultsByGroup: true
+    referencedAnalysisOperations:
+      - referencedOperationRelationshipId: Rel_Pct_NUM
+        analysisId: An_Q1_Count_ByTrtResp
+      - referencedOperationRelationshipId: Rel_Pct_DEN
+        analysisId: An_N_All_ByTrt
+    results:
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "34.8837"
+        formattedValue: "(34.9)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "65.1163"
+        formattedValue: "(65.1)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "33.3333"
+        formattedValue: "(33.3)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "66.6667"
+        formattedValue: "(66.7)"
+
+  - id: An_N_Female_ByTrt
+    name: Female N by Treatment
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADSL
+    variable: USUBJID
+    analysisSetId: AS_Female_SAF
+    methodId: Mth_Count
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+    results:
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+        rawValue: "46"
+        formattedValue: "46"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+        rawValue: "48"
+        formattedValue: "48"
+
+  - id: An_Q2_Count_ByTrtResp
+    name: Q2 Count by Treatment and Response
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADQS
+    variable: USUBJID
+    analysisSetId: AS_Female_SAF
+    dataSubsetId: DS_Q2
+    methodId: Mth_Count
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+      - order: 2
+        groupingId: Grp_RESP
+        resultsByGroup: true
+    results:
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "10"
+        formattedValue: "10"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "36"
+        formattedValue: "36"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "12"
+        formattedValue: "12"
+      - operationId: Op_Count
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "36"
+        formattedValue: "36"
+
+  - id: An_Q2_Pct_ByTrtResp
+    name: Q2 Percent by Treatment and Response
+    reason:
+      controlledTerm: SPECIFIED IN SAP
+    purpose:
+      controlledTerm: PRIMARY OUTCOME MEASURE
+    dataset: ADQS
+    variable: USUBJID
+    analysisSetId: AS_Female_SAF
+    dataSubsetId: DS_Q2
+    methodId: Mth_Percent
+    orderedGroupings:
+      - order: 1
+        groupingId: Grp_TRT
+        resultsByGroup: true
+      - order: 2
+        groupingId: Grp_RESP
+        resultsByGroup: true
+    referencedAnalysisOperations:
+      - referencedOperationRelationshipId: Rel_Pct_NUM
+        analysisId: An_Q2_Count_ByTrtResp
+      - referencedOperationRelationshipId: Rel_Pct_DEN
+        analysisId: An_N_Female_ByTrt
+    results:
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "21.7391"
+        formattedValue: "(21.7)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Placebo
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "78.2609"
+        formattedValue: "(78.3)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: Yes
+        rawValue: "25.0000"
+        formattedValue: "(25.0)"
+      - operationId: Op_Percent
+        resultGroups:
+          - groupingId: Grp_TRT
+            groupValue: Drug X
+          - groupingId: Grp_RESP
+            groupValue: No
+        rawValue: "75.0000"
+        formattedValue: "(75.0)"
+
+outputs:
+  - id: Out_QS_By_Trt
+    name: Questionnaire Summary by Treatment
+    displays:
+      - order: 1
+        display:
+          id: Disp_QS_By_Trt
+          name: Questionnaire Summary Display
+          displayTitle: "Questionnaire Summary by Treatment"
