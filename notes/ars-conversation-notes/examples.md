@@ -103,3 +103,73 @@ Q2:
 2. 这类跨数据集语义成立，但实现层需要明确 join 规则。
 3. dummy/template 的生成通常属于实现层，不是 ARS 原生对象。
 
+## 示例 4：`DataSubset` 与 `GroupingFactor` 使用同一变量
+
+### 场景
+
+目标：只分析 `m=1` 的 visit，并按这些 visit 分组展示。
+
+### 建模要点
+
+- `DataSubset`：限制记录范围，例如只保留 `m=1`
+- `GroupingFactor`：对保留下来的 visit 分组
+
+### 要点
+
+- `DataSubset` 负责 “进不进入分析”
+- `GroupingFactor` 负责 “进入分析后怎么分组”
+- 若 visit 依赖 `C<n>D<m>` 这类字符串模式，优先先派生结构化变量，再用 ARS 引用
+
+## 示例 5：Missing 与 Total
+
+### 场景
+
+| Row | Placebo | Drug X |
+| --- | ---: | ---: |
+| Male | 33 | 34 |
+| Female | 53 | 50 |
+| Missing | 0 | 1 |
+| Total | 86 | 84 |
+
+### 建模要点
+
+- `Missing`
+  - 更接近真实 group level
+  - 适合落在 `GroupingFactor.groups`
+- `Total`
+  - 更接近聚合结果
+  - 更推荐独立 analysis
+  - 若落成 group，更接近复合 group / 伪 group
+
+### 最小 group 形态
+
+`SEX_MISS`：
+
+```yaml
+id: SEX_MISS
+name: Missing
+condition:
+  dataset: ADSL
+  variable: SEX_STD
+  comparator: EQ
+  value: ["Missing"]
+```
+
+`RACE_TOTAL`：
+
+```yaml
+id: RACE_TOTAL
+name: Total
+compoundExpression:
+  logicalOperator: OR
+  whereClauses:
+    - subClauseId: RACE_WHITE
+    - subClauseId: RACE_BLACK
+    - subClauseId: RACE_ASIAN
+    - subClauseId: RACE_OTHER
+```
+
+### 要点
+
+- `SEX_MISS` 是原子 group
+- `RACE_TOTAL` 是复合 group；若追求语义最干净，仍更推荐独立 analysis

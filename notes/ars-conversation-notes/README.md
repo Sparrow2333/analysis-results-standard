@@ -18,6 +18,12 @@
 8. `GroupingFactor.groupingDataset` 不必等于 `Analysis.dataset`；分组变量应绑定到它稳定、完整存在的数据集。
 9. `AnalysisSet` 如何绑定到主分析数据集中的记录，ARS 原生没有单独 join-key 字段；本项目示例的简单场景默认按 `USUBJID` 连接。
 10. “用 ADSL 补齐非 ADSL 数据集中的缺失受试者 / 缺失组组合” 更像实现层语义，不是 ARS 原生核心对象。
+11. `DataSubset` 与 `GroupingFactor` 的本质区别是：
+   - `DataSubset`：先筛记录
+   - `GroupingFactor`：对保留下来的记录分组
+12. 对复杂 data-driven grouping，若依赖字符串模式解析，优先先派生结构化分析变量，再让 ARS 引用该变量。
+13. `Missing` 更接近可显示的 group level；`Total` 更接近聚合结果。
+14. `SEX_MISS` 可视为真实 group；`RACE_TOTAL` 若落成 group，更接近复合 group 或伪 group。
 
 ## 本轮最重要的修正
 
@@ -42,6 +48,11 @@
 9. `AnalysisSet` 与主分析数据集如何绑定受试者。
 10. grouping factor 是否能只选部分 group，group 水平顺序是否能显式指定。
 11. 分析非 `ADSL` 数据集时，常见的 dummy dataset / template 语义在 ARS 中如何承接。
+12. `DataSubset` 与 `GroupingFactor` 看起来都能碰同一变量，它们在语义上到底如何区分。
+13. 复杂 data-driven visit（例如 `C<n>D<m>`）应在 ARS 中如何表达。
+14. grouping 有 missing 时，应该建 group 还是单独建 analysis。
+15. total / overall 在 shell 中有不同展示方式时，底层数据语义是否有差别。
+16. `SEX_MISS` 和 `RACE_TOTAL` 这类 group 到底是不是同一类对象。
 
 ## 仍需项目约定的点
 
@@ -50,8 +61,9 @@
 3. `n(%)` 中 numerator / denominator 的 result 级匹配规则。
 4. dummy/template 如何生成，何时补 0，何时保留 missing。
 5. `dataDriven` grouping 的排序规则。
+6. 复杂模式 visit 如何先派生再分组，应固定到何种项目约定层。
+7. `Total` 是否允许作为伪 group 使用，还是统一要求建独立 analysis。
 
 ## 配套文件
 
 - [examples.md](examples.md)：本轮讨论中最常用的几类表格和简化建模思路。
-
